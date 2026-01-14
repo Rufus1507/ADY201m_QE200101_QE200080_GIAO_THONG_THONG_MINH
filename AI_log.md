@@ -2562,3 +2562,326 @@ Nếu bạn muốn bước tiếp theo:
 🗺️ Hiển thị bản đồ realtime (NiceGUI / Folium)
 
 👉 Bạn đang chạy script này trên Windows hay Linux (Jetson/Server)?
+
+Câu hỏi: docker diagram là gì 
+**Docker diagram** là **sơ đồ kiến trúc** mô tả **cách các container Docker hoạt động và kết nối với nhau** trong một hệ thống.
+
+Nói đơn giản 👇
+👉 Nó là **bản vẽ “toàn cảnh” của hệ thống chạy bằng Docker**.
+
+---
+
+## 🧠 Hiểu nhanh trong 30 giây
+
+Thay vì:
+
+> “Tôi có backend, database, frontend…”
+
+Docker diagram trả lời:
+
+* Có **những container nào**
+* Mỗi container **chạy cái gì**
+* Chúng **kết nối với nhau ra sao**
+* Dữ liệu đi **từ đâu → tới đâu**
+
+---
+
+## 📦 Docker diagram thường có những gì?
+
+### 1️⃣ Container
+
+Ví dụ:
+
+* `backend-api`
+* `postgres-db`
+* `redis-cache`
+* `frontend-ui`
+
+👉 Mỗi container = 1 **hộp**
+
+---
+
+### 2️⃣ Image
+
+Ví dụ:
+
+* `python:3.11`
+* `postgres:15`
+
+👉 Ghi chú container đang dùng image gì
+
+---
+
+### 3️⃣ Network
+
+* Bridge network
+* Exposed port (8000, 5432…)
+
+---
+
+### 4️⃣ Volume
+
+* Database data
+* Log data
+
+---
+
+### 5️⃣ External services (nếu có)
+
+* Open API
+* Cloud Storage
+
+---
+
+## 🖼️ Ví dụ Docker diagram (dạng chữ)
+
+```
+┌─────────────┐       ┌──────────────┐
+│  Frontend   │ ───▶  │  Backend API │
+│  (NiceGUI)  │       │  (FastAPI)   │
+└─────────────┘       └───────┬──────┘
+                               │
+                               ▼
+                        ┌──────────────┐
+                        │  PostgreSQL  │
+                        │  (Volume)   │
+                        └──────────────┘
+```
+
+---
+
+######### ngày 14/01/2026 #########
+## 🎯 Docker diagram dùng để làm gì?
+
+### ✅ 1. Thuyết minh kiến trúc (báo cáo, đồ án)
+
+Giảng viên nhìn diagram là **hiểu ngay hệ thống**
+
+### ✅ 2. Triển khai thật
+
+* Viết `docker-compose.yml`
+* Mapping đúng service
+
+### ✅ 3. Debug
+
+* Biết lỗi nằm ở container nào
+
+---
+
+## 🎓 Với ADY201m / đồ án của bạn
+
+Docker diagram thường dùng cho:
+
+* **Report 1 – Project Planning & Architecture**
+* Mục **System Architecture**
+
+---
+
+## 🧩 Ví dụ đúng chuẩn cho project Giao thông thông minh
+
+```
+User Browser
+     │
+     ▼
+┌───────────────┐
+│ NiceGUI App   │  (Python)
+│ (UI Container)│
+└───────┬───────┘
+        │ REST API
+        ▼
+┌───────────────┐
+│ Analytics API │
+│ (FastAPI)     │
+└───────┬───────┘
+        │ SQL
+        ▼
+┌───────────────┐
+│ PostgreSQL    │
+│ (Volume)     │
+└───────────────┘
+        │
+        ▼
+ Open Traffic API
+```
+
+---
+
+## 🧰 Vẽ Docker diagram bằng gì?
+
+### 🟢 Dễ nhất (sinh viên)
+
+* **draw.io (diagrams.net)** ⭐⭐⭐⭐⭐
+* PowerPoint (đủ dùng)
+
+### 🟡 Chuyên nghiệp
+
+* Lucidchart
+* Miro
+
+---
+
+## ❗ Docker diagram KHÔNG phải
+
+* Không phải `Dockerfile`
+* Không phải `docker-compose.yml`
+* Không phải code
+
+👉 Nó là **sơ đồ giải thích**
+
+---
+
+## 🧠 Tóm tắt 1 câu
+
+> **Docker diagram là sơ đồ mô tả các container Docker, cách chúng giao tiếp và lưu trữ dữ liệu trong hệ thống.**
+
+---
+
+Nếu bạn muốn, mình có thể:
+
+* ✏️ Vẽ **Docker diagram đúng chuẩn cho dự án của bạn**
+* 🧱 Chuyển diagram → `docker-compose.yml`
+* 🧾 Viết **mô tả kiến trúc cho Report 1**
+
+Chỉ cần nói 👍
+Tôi hoi: viết mô tả kiến trúc cho report 1:
+Ok 👍
+Dưới đây là **PHẦN MÔ TẢ KIẾN TRÚC HỆ THỐNG (System Architecture)** viết **đúng chuẩn Report 1 – Project Planning & Architecture**, phù hợp đồ án **ADY201m**.
+Bạn có thể **copy dán thẳng vào report** (Markdown / Word đều ổn).
+
+---
+
+# 🧱 3. SYSTEM ARCHITECTURE (KIẾN TRÚC HỆ THỐNG)
+
+## 3.1. Tổng quan kiến trúc
+
+Hệ thống **Smart Traffic Analytics – Dự đoán và phân tích điểm kẹt xe đô thị** được thiết kế theo kiến trúc **container-based architecture** sử dụng **Docker**, nhằm đảm bảo tính **linh hoạt, mở rộng và dễ triển khai**.
+
+Kiến trúc hệ thống bao gồm các thành phần chính:
+
+* Giao diện người dùng (Frontend)
+* Backend xử lý và phân tích dữ liệu
+* Hệ quản trị cơ sở dữ liệu
+* Nguồn dữ liệu giao thông bên ngoài (External APIs)
+
+Các thành phần này được triển khai dưới dạng các **Docker container độc lập**, giao tiếp với nhau thông qua mạng nội bộ của Docker.
+
+---
+
+## 3.2. Các thành phần chính của hệ thống
+
+### 3.2.1. Frontend – User Interface (NiceGUI)
+
+* Công nghệ: **Python + NiceGUI**
+* Chạy trong một Docker container riêng
+* Chức năng:
+
+  * Hiển thị bản đồ giao thông theo thời gian thực
+  * Cho phép người dùng chọn khu vực, thời gian
+  * Trực quan hóa dữ liệu kẹt xe và kết quả dự đoán
+
+Frontend giao tiếp với Backend thông qua **REST API** để gửi yêu cầu và nhận dữ liệu phân tích.
+
+---
+
+### 3.2.2. Backend – Data Processing & Analytics API
+
+* Công nghệ: **FastAPI / Python**
+* Chạy trong Docker container
+* Chức năng:
+
+  * Thu thập dữ liệu giao thông từ các nguồn Open Data hoặc API bên ngoài
+  * Tiền xử lý dữ liệu (cleaning, normalization)
+  * Phân tích và dự đoán tình trạng kẹt xe bằng các mô hình dữ liệu
+  * Cung cấp API cho Frontend truy xuất kết quả
+
+Backend đóng vai trò trung tâm trong toàn bộ hệ thống.
+
+---
+
+### 3.2.3. Database – Data Storage
+
+* Công nghệ: **PostgreSQL**
+* Triển khai dưới dạng Docker container
+* Sử dụng **Docker Volume** để lưu trữ dữ liệu bền vững
+* Chức năng:
+
+  * Lưu trữ dữ liệu giao thông lịch sử
+  * Lưu kết quả phân tích và dự đoán
+  * Phục vụ truy vấn cho Backend
+
+Việc tách riêng Database giúp hệ thống dễ bảo trì và mở rộng trong tương lai.
+
+---
+
+### 3.2.4. External Data Sources
+
+* Bao gồm:
+
+  * Open Traffic Data
+  * API giao thông công cộng
+  * (Có thể mở rộng) Camera / Sensor IoT trong tương lai
+
+Backend chịu trách nhiệm kết nối, thu thập và xử lý dữ liệu từ các nguồn này.
+
+---
+
+## 3.3. Docker-based Deployment Architecture
+
+Hệ thống sử dụng **Docker Compose** để quản lý và triển khai các container.
+Mỗi service (Frontend, Backend, Database) chạy độc lập nhưng được kết nối thông qua **Docker Bridge Network**.
+
+### Lợi ích của Docker trong hệ thống:
+
+* Đảm bảo môi trường chạy đồng nhất
+* Dễ dàng triển khai trên nhiều nền tảng (Windows, Linux, Server)
+* Thuận tiện cho phát triển nhóm
+* Dễ mở rộng thêm service trong tương lai
+
+---
+
+## 3.4. Luồng hoạt động của hệ thống (System Workflow)
+
+1. Người dùng truy cập giao diện Frontend thông qua trình duyệt
+2. Frontend gửi yêu cầu dữ liệu tới Backend API
+3. Backend:
+
+   * Lấy dữ liệu từ Database hoặc External APIs
+   * Xử lý và phân tích dữ liệu
+4. Kết quả được trả về Frontend
+5. Frontend hiển thị dữ liệu dưới dạng bản đồ và biểu đồ trực quan
+
+---
+
+## 3.5. Khả năng mở rộng trong tương lai
+
+Kiến trúc hệ thống cho phép mở rộng:
+
+* Thêm mô hình AI/ML dự đoán nâng cao
+* Tích hợp dữ liệu từ camera hoặc cảm biến IoT
+* Triển khai trên Cloud (AWS, GCP, Azure)
+* Scale riêng từng service khi cần thiết
+
+---
+
+## 3.6. Tổng kết
+
+Kiến trúc Docker-based được lựa chọn nhằm đảm bảo hệ thống **ổn định, dễ triển khai và phù hợp cho các bài toán phân tích dữ liệu giao thông thông minh**. Thiết kế này đáp ứng tốt yêu cầu học thuật của môn ADY201m cũng như khả năng phát triển thực tế trong tương lai.
+
+---
+
+## ✅ Gợi ý trình bày trong Report 1
+
+* Phần này đặt sau **Project Overview**
+* Có thể kèm **Docker Diagram (hình vẽ)**
+* Không cần code
+
+---
+
+Nếu bạn muốn, mình có thể:
+
+* ✏️ Viết **mô tả ngắn hơn (1 trang A4)**
+* 🖼️ Vẽ **Docker Diagram đúng nội dung này**
+* 🧾 Chỉnh văn phong theo **RBL / Academic English**
+* 🔁 Điều chỉnh theo **thực tế code bạn đang làm**
+
+Chỉ cần nói 👍
