@@ -4,9 +4,11 @@
 > **Dự án Học tập - Môn ADY201m (AI, Data Science with Python & SQL)**
 
 ## 👥 Thành viên thực hiện
-| STT | Họ và Tên | Mã sinh viên | Vai trò |
-|:---:|:---|:---|:---|
-| 1 | **Lê Ngọc Phú** | QE200080 | 
+=======
+| STT | Họ và Tên | Mã sinh viên |
+|:---:|:---|:---|
+| 1 | **Lê Ngọc Phú** | QE200080 |
+>>>>>>> ba59f355f4e8c93cf077c87e7abbd816031a73d1
 | 2 | **Nguyễn Xuân Đỉnh** | QE200101 |
 
 ## 📖 Giới thiệu dự án
