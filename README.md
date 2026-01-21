@@ -8,7 +8,6 @@
 | STT | Họ và Tên | Mã sinh viên |
 |:---:|:---|:---|
 | 1 | **Lê Ngọc Phú** | QE200080 |
-
 | 2 | **Nguyễn Xuân Đỉnh** | QE200101 |
 
 ## 📖 Giới thiệu dự án
