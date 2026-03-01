@@ -6885,4 +6885,515 @@ Bạn muốn Report 4 theo hướng:
 1️⃣ Classification (Dự đoán KET_XE – dễ ăn điểm hơn)
 2️⃣ Regression (Dự đoán tốc độ – phức tạp hơn)
 
-Chọn 1, mình sẽ viết chi tiết chiến lược model, feature selection, và cách biện luận để chấp nhận hoặc bác bỏ giả thuyết.
+Chọn 1, mình sẽ viết chi tiết chiến lược model, feature selection, và cách biện luận để chấp nhận hoặc bác bỏ giả thuyết.################################### 03/1/2026###################################
+
+
+You said:
+đọc file này và cho tôi biết report 3 cần làm gì chủ đề của nhóm tôi là dự đoán tình trạng tắc đường tại quy nhơn từ 6h trên 22hADY201m: AI, DATA SCIENCE WITH PYTHON & SQL
+HƯỚNG DẪN HỌC TẬP: ADVANCED DATA ENGINEERING & SCIENCE BOOTCAMP
+1. GIỚI THIỆU CHUNG
+Chào mừng các bạn đến với ADY201m. Học kỳ này được thiết kế như một "Trại huấn luyện" (Bootcamp) cường độ cao, mô phỏng quy trình làm việc tại các công ty công nghệ lớn.
+Triết lý RBL (Research-Based Learning): Chúng ta không học để trả bài. Chúng ta học để chứng minh hoặc bác bỏ các giả thuyết khoa học. Bạn phải đặt câu hỏi trước, sau đó mới đi tìm dữ liệu để trả lời.
+Mục tiêu: Xây dựng một hệ thống dữ liệu tự động (End-to-End Pipeline) từ Data Lake đến Machine Learning Model.
+Tech Stack (Bắt buộc): Python, SQL, RStudio, Docker (Micro-architecture), MinIO (Data Lake), GitHub.
+2. CẤU TRÚC LỚP HỌC & ĐÁNH GIÁ (80/20)
+2.1. Đội ngũ dự án
+Số lượng: 1 - 2 sinh viên / nhóm.
+Yêu cầu: Khả năng tự học (Self-research) và chịu áp lực cao.
+2.2. Phương thức đánh giá (Assessment)
+Điểm số môn học bao gồm 80% Dự án Thực tế (thông qua 5 Reports) và 20% Thi cuối kỳ.
+QUAN TRỌNG: Môn học này KHÔNG CÓ BÀI KIỂM TRA TRẮC NGHIỆM GIỮA KỲ (NO PROGRESS TESTS). Toàn bộ điểm số của Progress Test trong Syllabus đã được chuyển sang đánh giá chất lượng sản phẩm trong Report 2 và Report 4.
+Report
+Quy đổi điểm
+Trọng số
+Nội dung & Yêu cầu Kỹ thuật (Advanced)
+Report 1
+Project Planning
+10%
+Research Proposal & Architecture:
+
+- Xác định bài toán & Đặt giả thuyết nghiên cứu (Hypotheses).
+
+- Thiết kế kiến trúc hệ thống (Docker Diagram).
+Report 2
+On-going 1 (10%)
+
++ Progress Test 1 (10%)
+20%
+Data Lake & Engineering (Heavy Workload):
+
+- Setup MinIO trên Docker.
+
+- Code Pipeline: Crawl -> MinIO (Raw) -> Dgma.
+Report 3
+On-going 2
+10%
+EDA & RStudio Integration:
+
+- Sử dụng RStudio để thực hiện phân tích khám phá (EDA).
+
+- Data Dictionary (Từ điển dữ liệu).
+Report 4
+On-going 3 (10%)
+
++ Progress Test 2 (10%)
+20%
+Modeling & Validation (Heavy Workload):
+
+- Xây dựng 2 mô hình ML khác nhau để kiểm định giả thuyết.
+
+- Đánh giá độ chính xác (Model Evaluation) và so sánh hiệu quả.
+Report 5
+Final Project Eval
+20%
+Deployment & Defense:
+
+- Đóng gói sản phẩm bằng Docker Compose.
+
+- Demo & Bảo vệ kết quả nghiên cứu.
+Final Exam
+Final Exam
+20%
+Thi cuối kỳ (Trắc nghiệm tổng hợp). Điều kiện: Hoàn thành đủ 5 Reports.
+
+2.3. QUY ĐỊNH VỀ GITHUB & CẤU TRÚC DỰ ÁN (BẮT BUỘC)
+Sinh viên phải tuân thủ nghiêm ngặt quy trình quản lý mã nguồn. Vi phạm cấu trúc hoặc không commit thường xuyên sẽ bị 0 điểm Report.
+A. Quy tắc Commit:
+Tần suất: Phải có commit ít nhất 2 lần/tuần.
+Message: Commit message phải rõ ràng (VD: feat: add crawling script for shopee, fix: handle null values in cleaning). Không chấp nhận message kiểu update, final, code.
+Cấm: Chỉ upload code 1 lần duy nhất vào cuối kỳ -> 0 điểm toàn bộ quá trình.
+B. Cấu trúc Thư mục Chuẩn (Project Structure):
+Tất cả các nhóm phải tổ chức GitHub Repo theo cấu trúc cây thư mục sau:
+Student_ID_Project_Name/
+│
+├── .gitignore               # Loại bỏ file rác, file .env, __pycache__
+├── README.md                # Hướng dẫn setup và chạy dự án (BẮT BUỘC)
+├── AI_Log.md                # Nhật ký sử dụng AI (Prompt engineering log)
+├── docker-compose.yml       # File khởi chạy toàn bộ hệ thống (MinIO, DB, App)
+├── requirements.txt         # Các thư viện Python cần thiết
+│
+├── configs/                 # Chứa file cấu hình (nếu có)
+│   └── db_config.json
+│
+├── docker/                  # Các file Dockerfile cho từng service
+│   ├── app/
+│   │   └── Dockerfile
+│   └── db/                  # (Optional nếu dùng image gốc)
+│
+├── data/                    # Dữ liệu mẫu (Sample only - KHÔNG UP DỮ LIỆU LỚN LÊN GITHUB)
+│   ├── raw/
+│   └── processed/
+│
+├── src/                     # Source code chính
+│   ├── ingestion/           # Code Crawl/API
+│   │   └── crawler.py
+│   ├── processing/          # Code làm sạch & ETL
+│   │   └── cleaner.py
+│   ├── modeling/            # Code Machine Learning
+│   │   └── model.py
+│   └── utils/               # Các hàm tiện ích dùng chung
+│
+├── notebooks/               # Jupyter Notebooks & RMarkdown (Dùng để phân tích/EDA)
+│   ├── 1_Exploration.ipynb
+│   └── 2_Modeling.ipynb
+│
+└── reports/                 # Các file báo cáo PDF nộp định kỳ
+    ├── Report_1_Proposal.pdf
+    └── Report_2_DataEngineering.pdf
+
+
+3. QUY TRÌNH KỸ THUẬT (TECHNICAL WORKFLOW)
+Sinh viên phải thiết lập môi trường Local mô phỏng hệ thống Enterprise:
+Infrastructure (Docker Compose):
+Container 1: MinIO (Data Lake - S3 Compatible).
+Container 2: Database (PostgreSQL hoặc SQLite mount volume).
+Container 3: App/Workstation (Python/RStudio environment).
+Data Pipeline:
+Ingestion: Python Crawl -> Lưu file JSON/HTML thô vào MinIO.
+Processing: Đọc từ MinIO -> Làm sạch -> Lưu vào Database.
+Analysis: RStudio/Jupyter kết nối DB -> Visualize -> Modeling.
+4. CHỦ ĐỀ NGHIÊN CỨU & ĐỊNH HƯỚNG GIẢ THUYẾT
+Lưu ý: Sinh viên cần chuyển hóa các vấn đề cốt lõi thành Giả thuyết khoa học ($H_0, H_1$) trong Report 1.
+CHỦ ĐỀ 1: BẤT ĐỘNG SẢN & DU LỊCH (Real Estate/Tourism)
+Nguồn: Booking, Agoda, Batdongsan.
+Vấn đề Cốt lõi:
+Vị trí: "Liệu có phải cứ gần trung tâm/biển là giá cao, hay còn phụ thuộc vào yếu tố khác (an ninh, tiện ích)?"
+Quy luật giá: "Diện tích và Giá tiền có thực sự tuyến tính? Có điểm bão hòa nào không?"
+Câu hỏi MỞ (Gợi ý): Tiện ích nào (Hồ bơi, view biển, gần trung tâm) làm tăng giá phòng nhiều nhất?
+CHỦ ĐỀ 2: PHÂN TÍCH CẢM XÚC (Sentiment Analysis)
+Nguồn: ShopeeFood, Foody.
+Vấn đề Cốt lõi:
+Xu hướng: "Chất lượng dịch vụ (qua rating) có xu hướng đi xuống khi quán trở nên quá đông khách (nhiều review) không?"
+Ngôn ngữ: "Các từ khóa nào mang tính quyết định đến việc khách hàng đánh giá 1 sao (Fatal keywords)?"
+Câu hỏi MỞ (Gợi ý): Có sự khác biệt vùng miền (Bắc/Nam) trong cách đánh giá không? Hay độ dài comment có liên quan đến số sao không?
+CHỦ ĐỀ 3: GAME ANALYTICS (Dota 2 / LoL)
+Nguồn: API Dota/LoL.
+Vấn đề Cốt lõi:
+Thời lượng: "Các trận đấu kéo dài (>40p) có làm thay đổi tỷ lệ thắng của các nhóm tướng (Late game carry) không?"
+Meta Game: "Tướng có tỷ lệ chọn (Pick rate) cao liệu có đồng nghĩa với tỷ lệ thắng (Win rate) cao?"
+Câu hỏi MỞ (Gợi ý): Phân tích sự độc hại (Toxic): Tần suất chat trong game có tương quan với việc thua trận không?
+CHỦ ĐỀ 4: TRENDING CONTENT (YouTube/Spotify)
+Nguồn: YouTube/Spotify API.
+Vấn đề Cốt lõi:
+Thời điểm vàng: "Upload video vào khung giờ hành chính hay khung giờ nghỉ ngơi sẽ dễ lọt Top Trending hơn?"
+Tương tác: "Lượng Dislike (hoặc Comment tiêu cực) có ảnh hưởng đến khả năng viral của video không?"
+Câu hỏi MỞ (Gợi ý): Phân tích tiêu đề (Title): Các video có từ khóa "giật gân" (SỐC, LỘ, REVIEW) có thực sự nhiều view hơn trung bình không?
+CHỦ ĐỀ 5: THỊ TRƯỜNG TUYỂN DỤNG IT
+Nguồn: ITViec, TopDev.
+Vấn đề Cốt lõi:
+Giá trị bằng cấp: "Mức lương của các công việc yêu cầu 'University Degree' có cao hơn đáng kể so với các công việc không yêu cầu không?"
+Kỹ năng: "Python hay Java đang là ngôn ngữ có 'Median Salary' cao nhất tại thị trường Việt Nam?"
+Câu hỏi MỞ (Gợi ý): So sánh chế độ đãi ngộ giữa công ty Product và công ty Outsourcing?
+5. LỘ TRÌNH TRIỂN KHAI (TIMELINE 10 TUẦN)
+Tuần
+Hoạt động (Tasks)
+Deadline & Yêu cầu Báo cáo
+1 - 2
+Project Planning
+REPORT 1 (10%): Proposal & Architecture
+
+- Trình bày Giả thuyết nghiên cứu.
+
+- Setup GitHub Repo theo cấu trúc chuẩn.
+
+- Sơ đồ kiến trúc Docker.
+3 - 4
+Data Engineering
+REPORT 2 (20%): Data Pipeline
+
+- Code Crawl -> MinIO -> DB.
+
+- Chứng minh dữ liệu đã về Data Lake.
+
+- SQL Queries kiểm tra dữ liệu thô.
+5 - 6
+Cleaning & EDA
+REPORT 3 (10%): Data Cleaning & RStudio
+
+- Notebook làm sạch.
+
+- Sử dụng RStudio vẽ biểu đồ phân bố.
+
+- Data Dictionary.
+7 - 8
+Modeling
+REPORT 4 (20%): Modeling & Evaluation
+
+- Chạy mô hình (Regression/Classification).
+
+- Biện luận kết quả: Chấp nhận hay bác bỏ giả thuyết?
+9 - 10
+Deployment
+REPORT 5 (20%): Final Defense
+
+- docker-compose up để demo sản phẩm.
+
+- Slide báo cáo & Trả lời phản biện.
+
+6. QUY ĐỊNH CHUNG (AI & INTEGRITY)
+AI Policy: Được dùng AI, nhưng phải nộp AI_Log.md chứng minh quá trình prompt.
+GitHub:
+Tạo Private Repo, invite giảng viên.
+Bắt buộc: Phải có file .gitignore để tránh upload file rác (__pycache__, .DS_Store, file dữ liệu quá nặng).
+Data: Phải tự crawl. Cấm dùng dataset có sẵn.
+
+ChatGPT said:
+Mình đã đọc toàn bộ file hướng dẫn ADY201m bạn gửi. Dưới đây là giải thích CỤ THỂ Report 3 cần làm gì, viết riêng cho đúng chủ đề nhóm bạn:
+
+Dự đoán tình trạng tắc đường tại Quy Nhơn từ 6h–22h
+
+1. Mục tiêu cốt lõi của Report 3
+Report 3 KHÔNG phải train model.
+Report 3 dùng để chứng minh rằng dữ liệu của bạn:
+
+Đã được làm sạch đúng
+
+Đã được hiểu rõ về mặt thống kê
+
+Sẵn sàng cho Report 4 (Modeling & Hypothesis Testing)
+
+👉 Giảng viên sẽ đánh giá:
+
+“Nhóm này có hiểu dữ liệu giao thông Quy Nhơn không?”
+
+2. Report 3 cần làm GÌ? (Checklist bắt buộc)
+(1) Data Cleaning Notebook (Python hoặc R)
+Bạn cần 1 notebook làm sạch dữ liệu, ví dụ:
+
+notebooks/
+ └── 3_Cleaning_and_EDA.ipynb
+Với bài toán tắc đường Quy Nhơn, notebook phải thể hiện:
+Xử lý missing data
+
+Ví dụ: thiếu tốc độ xe, thiếu thời tiết, thiếu timestamp
+
+Chuẩn hóa thời gian
+
+Chuyển timestamp → hour, day_of_week
+
+Lọc dữ liệu chỉ từ 6h–22h
+
+Chuẩn hóa biến giao thông
+
+speed (km/h)
+
+traffic_level (low / medium / high) hoặc chỉ số tắc đường
+
+Loại bỏ outliers
+
+Ví dụ: tốc độ = 0 km/h lúc 3h sáng → loại
+
+📌 Quan trọng:
+Cleaning phải có giải thích bằng text, không chỉ code.
+
+(2) EDA bằng RStudio (BẮT BUỘC)
+Đây là điểm “advanced” của Report 3.
+
+Bạn phải:
+
+Mở RStudio
+
+Kết nối DB hoặc load dữ liệu đã clean
+
+Dùng ggplot2 để vẽ biểu đồ
+
+Biểu đồ TỐI THIỂU nên có (gợi ý rất sát đề tài):
+1️⃣ Phân bố tắc đường theo giờ
+
+Trục X: Hour (6–22)
+
+Trục Y: Traffic level / speed
+👉 Trả lời câu hỏi:
+
+Giờ nào Quy Nhơn dễ tắc nhất?
+
+2️⃣ So sánh ngày thường vs cuối tuần
+
+Boxplot hoặc violin plot
+👉 Có khác biệt không?
+
+3️⃣ Heatmap (Giờ × Ngày trong tuần)
+👉 Tắc đường có tính chu kỳ không?
+
+4️⃣ (Nếu có dữ liệu phụ)
+
+Ảnh hưởng thời tiết (mưa / nắng)
+
+Ảnh hưởng sự kiện / giờ tan ca
+
+📌 Trong report PDF:
+Phải có ảnh biểu đồ + diễn giải bằng lời
+
+(3) Data Dictionary (Từ điển dữ liệu) – BẮT BUỘC
+Đây là phần rất hay bị thiếu → mất điểm.
+
+Bạn cần 1 bảng mô tả dữ liệu, ví dụ:
+
+Column name	Type	Description	Example
+timestamp	datetime	Thời điểm ghi nhận giao thông	2024-10-12 17:30
+hour	int	Giờ trong ngày (6–22)	17
+day_of_week	int	Thứ trong tuần (0=Mon)	5
+avg_speed	float	Tốc độ trung bình (km/h)	18.5
+traffic_level	category	Mức độ tắc đường	High
+weather	category	Thời tiết	Rain
+📌 Giảng viên dùng Data Dictionary để kiểm tra:
+
+“Sinh viên có hiểu từng cột không, hay chỉ crawl cho có?”
+
+3. Report 3 KHÔNG cần (đừng làm thừa)
+❌ Không train ML
+❌ Không cần accuracy / F1-score
+❌ Không cần Docker deploy
+❌ Không cần API
+
+👉 Những thứ đó để Report 4 & 5
+
+4. File cần nộp cho Report 3
+Trong thư mục:
+
+reports/
+ └── Report_3_EDA_RStudio.pdf
+Report PDF nên có cấu trúc:
+
+Giới thiệu ngắn (1 trang)
+
+Mục tiêu EDA cho bài toán tắc đường Quy Nhơn
+
+Data Cleaning Summary
+
+Các bước làm sạch chính
+
+EDA Results (RStudio)
+
+Biểu đồ + phân tích
+
+Data Dictionary
+
+Insight sơ bộ
+
+Ví dụ:
+
+“Khung giờ 7h–8h và 16h30–18h có mức tắc đường cao nhất → phù hợp giả thuyết ban đầu”
+
+5. Liên kết sang Report 4 (rất quan trọng)
+Cuối Report 3 nên có 1 đoạn:
+
+“Từ kết quả EDA, nhóm đề xuất sử dụng các biến: hour, day_of_week, weather để xây dựng mô hình dự đoán tình trạng tắc đường trong Report 4.”
+
+👉 Giảng viên rất thích đoạn này vì thấy tư duy research đúng RBL.
+
+Nếu bạn muốn, mình có thể:
+
+✅ Viết outline PDF Report 3 đúng chuẩn giảng viên
+
+✅ Gợi ý biểu đồ RStudio + code ggplot
+
+✅ Giúp bạn chuyển giả thuyết Report 1 → biến số cho Report 3
+
+Bạn muốn hỗ trợ theo hướng nào tiếp?
+
+
+You said:
+rõ hơn về notebook để clean data
+
+ChatGPT said:
+Ok, mình sẽ làm rõ RẤT CỤ THỂ notebook clean data cho Report 3, đúng chuẩn ADY201m, đúng bài toán dự đoán tắc đường tại Quy Nhơn (6h–22h).
+
+Bạn có thể làm theo từng cell y chang, giảng viên nhìn là biết bạn hiểu dữ liệu chứ không “clean cho có”.
+
+1. Notebook clean data dùng để làm gì? (Hiểu đúng trước khi code)
+Notebook này phải trả lời 3 câu hỏi:
+
+1️⃣ Dữ liệu thô có vấn đề gì?
+2️⃣ Nhóm đã sửa những vấn đề đó như thế nào?
+3️⃣ Sau khi clean, dữ liệu có sẵn sàng cho EDA & Modeling không?
+
+👉 Vì vậy:
+Notebook = code + giải thích bằng markdown
+
+2. Cấu trúc notebook CHUẨN (bắt buộc)
+notebooks/
+ └── 3_Data_Cleaning.ipynb
+Bên trong notebook, nên chia 6 section lớn sau.
+
+SECTION 1 — Giới thiệu & Mô tả dữ liệu
+Markdown (BẮT BUỘC)
+## 1. Data Cleaning for Traffic Congestion Prediction in Quy Nhon
+
+Mục tiêu:
+- Làm sạch dữ liệu giao thông thu thập tại Quy Nhơn
+- Chuẩn hóa thời gian từ 6h đến 22h
+- Chuẩn bị dữ liệu cho bước EDA bằng RStudio và Modeling
+👉 Giảng viên thấy đoạn này là biết bạn làm có chủ đích.
+
+SECTION 2 — Load dữ liệu thô (Raw data)
+Code cell
+import pandas as pd
+
+df_raw = pd.read_csv("../data/raw/traffic_raw.csv")
+df_raw.head()
+Markdown giải thích
+Dữ liệu thô được crawl từ API / website giao thông.
+Dữ liệu này CHƯA được xử lý missing values, outliers và định dạng thời gian.
+SECTION 3 — Khám phá nhanh dữ liệu thô (BEFORE cleaning)
+👉 Phần này rất quan trọng, nhiều nhóm bỏ → mất điểm.
+
+Code
+df_raw.info()
+df_raw.describe()
+df_raw.isnull().sum()
+Markdown (phải ghi rõ)
+Các vấn đề phát hiện:
+- Một số dòng thiếu avg_speed
+- timestamp đang ở dạng string
+- Có giá trị tốc độ = 0 hoặc > 120 km/h (bất thường)
+📌 Giảng viên chấm điểm ở phần “nhận diện vấn đề” này
+
+SECTION 4 — Clean & Transform dữ liệu (TRỌNG TÂM)
+4.1 Chuẩn hóa thời gian
+df = df_raw.copy()
+
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+df["hour"] = df["timestamp"].dt.hour
+df["day_of_week"] = df["timestamp"].dt.dayofweek
+# Lọc dữ liệu từ 6h–22h
+df = df[(df["hour"] >= 6) & (df["hour"] <= 22)]
+📌 Markdown:
+
+Chỉ giữ dữ liệu trong khung giờ nghiên cứu từ 6h đến 22h
+vì ngoài khung giờ này không phản ánh tình trạng giao thông thực tế.
+4.2 Xử lý missing values
+# Kiểm tra lại missing
+df.isnull().sum()
+# Loại bỏ dòng thiếu tốc độ
+df = df.dropna(subset=["avg_speed"])
+📌 Markdown:
+
+Các dòng không có thông tin avg_speed được loại bỏ
+vì đây là biến quan trọng để xác định mức độ tắc đường.
+4.3 Xử lý outliers (BẮT BUỘC có lý do)
+df = df[(df["avg_speed"] > 5) & (df["avg_speed"] < 80)]
+📌 Markdown:
+
+Loại bỏ các giá trị tốc độ bất thường:
+- <5 km/h: khả năng lỗi cảm biến
+- >80 km/h: không phù hợp với giao thông nội đô Quy Nhơn
+4.4 Tạo biến mục tiêu (Target variable)
+Ví dụ:
+
+def traffic_level(speed):
+    if speed < 20:
+        return "High"
+    elif speed < 40:
+        return "Medium"
+    else:
+        return "Low"
+
+df["traffic_level"] = df["avg_speed"].apply(traffic_level)
+📌 Markdown:
+
+traffic_level được tạo để phục vụ bài toán Classification
+trong Report 4.
+SECTION 5 — Kiểm tra dữ liệu SAU khi clean (AFTER cleaning)
+Code
+df.info()
+df.describe()
+df["traffic_level"].value_counts()
+📌 Markdown:
+
+Sau khi làm sạch:
+- Không còn missing values
+- Dữ liệu có phân bố hợp lý
+- Sẵn sàng cho bước EDA và Modeling
+SECTION 6 — Lưu dữ liệu đã clean
+df.to_csv("../data/processed/traffic_clean.csv", index=False)
+📌 Markdown:
+
+Dữ liệu đã clean được lưu để sử dụng cho:
+- EDA bằng RStudio (Report 3)
+- Machine Learning (Report 4)
+3. Những LỖI khiến Report 3 bị trừ nặng điểm
+❌ Không có markdown giải thích
+❌ Chỉ load dữ liệu → dropna → save
+❌ Không có BEFORE vs AFTER
+❌ Không gắn cleaning với bài toán tắc đường
+❌ Không tạo biến phục vụ modeling sau này
+
+4. Checklist nhanh trước khi nộp
+✅ Notebook có tiêu đề rõ ràng
+✅ Có mô tả dữ liệu thô
+✅ Có phát hiện vấn đề
+✅ Có lý do cho từng bước clean
+✅ Có lưu file processed
+
+Nếu bạn muốn, mình có thể:
+
+✨ Viết template notebook (.ipynb) đầy đủ markdown + code
+
+✨ Giúp bạn chọn ngưỡng speed hợp lý cho Quy Nhơn
+
+✨ Chuyển notebook này sang RMarkdown cho RStudio
+
+Bạn muốn đi tiếp bước nào?
+
+Is this conversation helpful so far?
