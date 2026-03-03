@@ -1,2 +1,27 @@
-.vscodce
-checkpoint 
+# IDE settings (Sửa lại chính tả ở đây)
+.vscode/
+.idea/
+*.swp
+
+# Python rác
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# AI & Deep Learning (Rất quan trọng cho Jetson)
+# Không nên push Model nặng hoặc dữ liệu hình ảnh lên Git
+models/*.onnx
+models/*.engine
+models/*.trt
+models/*.pt
+models/*.pth
+data/dataset/
+runs/
+checkpoint/
+*.log
+
+# Hệ thống
+.DS_Store
+node_modules/
