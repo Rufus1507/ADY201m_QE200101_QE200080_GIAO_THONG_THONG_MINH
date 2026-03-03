@@ -87,7 +87,8 @@ for obj_name in parquet_files:
             continue
         if pd.isna(speed_ratio) or pd.isna(traffic_level):
             continue
-
+        if pd.isna(confidence) or confidence <= 0.9:
+            continue
         # ----- NORMALIZE TIMESTAMP -----
         try:
             ts = datetime.fromisoformat(str(ts)).isoformat()
