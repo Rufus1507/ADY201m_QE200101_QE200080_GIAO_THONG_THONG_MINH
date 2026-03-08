@@ -10181,4 +10181,703 @@ Chỉ cần nói bước tiếp theo bạn muốn, mình đi tiếp cùng bạn.
 
 
 
+import sqlite3
+from datetime import datetime
+import os
+import io
+import pandas as pd
+from minio import Minio
 
+# ================= CONFIG ================= 
+MINIO_ENDPOINT = "localhost:9000"
+MINIO_ACCESS_KEY = "admin"
+MINIO_SECRET_KEY = "admin123"
+BUCKET_NAME = "raw-traffic-data"
+PREFIX = "traffic/incremental"
+
+CLEAN_DIR = "data/clean"
+CLEAN_DB_PATH = os.path.join(CLEAN_DIR, "data_traffic_clean.db")
+
+os.makedirs(CLEAN_DIR, exist_ok=True)
+
+# ================= MINIO CLIENT =================
+client = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=False
+)
+
+# ================= SQLITE CLEAN TARGET =================
+conn = sqlite3.connect(CLEAN_DB_PATH)
+cur = conn.cursor()
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS traffic_data_clean (
+        id INTEGER,
+        timestamp TEXT,
+        location TEXT,
+        current_speed_kmh REAL,
+        free_flow_speed_kmh REAL,
+        speed_ratio REAL,
+        traffic_level TEXT,
+        confidence REAL,
+        PRIMARY KEY (id, timestamp)
+    )
+""")
+
+# ================= FIND ALL PARQUET FILES =================
+print("🔍 Searching for parquet files on MinIO...")
+if client.bucket_exists(BUCKET_NAME):
+    objects = client.list_objects(BUCKET_NAME, prefix=PREFIX, recursive=True)
+    parquet_files = [obj.object_name for obj in objects if obj.object_name.endswith('.parquet')]
+else:
+    print(f"❌ Bucket {BUCKET_NAME} does not exist.")
+    parquet_files = []
+
+print(f"🔍 Found {len(parquet_files)} parquet files")
+
+# ================= CLEAN LOOP =================
+for obj_name in parquet_files:
+    print(f"➡ Processing: {obj_name}")
+    try:
+        response = client.get_object(BUCKET_NAME, obj_name)
+        file_data = response.read()
+        df_raw = pd.read_parquet(io.BytesIO(file_data))
+    except Exception as e:
+        print(f"❌ Lỗi đọc file {obj_name}: {e}")
+        continue
+    finally:
+        if 'response' in locals() and hasattr(response, 'close'):
+            response.close()
+        elif 'response' in locals() and hasattr(response, 'release_conn'):
+            response.release_conn()
+
+    for _, row in df_raw.iterrows():
+        rid = row["id"]
+        ts = row["timestamp"]
+        location = row["location"]
+        current_speed = row["current_speed_kmh"]
+        free_flow_speed = row["free_flow_speed_kmh"]
+        speed_ratio = row["speed_ratio"]
+        traffic_level = row["traffic_level"]
+        confidence = row.get("confidence", None)
+
+        # ----- BASIC VALIDATION -----
+        if pd.isna(current_speed) or pd.isna(free_flow_speed):
+            continue
+        if free_flow_speed <= 0:
+            continue
+        if pd.isna(speed_ratio) or pd.isna(traffic_level):
+            continue
+        if pd.isna(confidence) or confidence <= 0.9:
+            continue
+        # ----- NORMALIZE TIMESTAMP -----
+        try:
+            ts = datetime.fromisoformat(str(ts)).isoformat()
+        except Exception:
+            continue
+
+        # ----- IDEMPOTENT INSERT -----
+        cur.execute("""
+            INSERT OR IGNORE INTO traffic_data_clean (
+                id,
+                timestamp,
+                location,
+                current_speed_kmh,
+                free_flow_speed_kmh,
+                speed_ratio,
+                traffic_level,
+                confidence
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            rid,
+            ts,
+            location,
+            current_speed,
+            free_flow_speed,
+            speed_ratio,
+            traffic_level,
+            confidence
+        ))
+
+conn.commit()
+conn.close()
+
+print("✅ Incremental clean completed successfully")
+print(f"📁 Clean DB: {CLEAN_DB_PATH}")
+cho tôi biết data dictionary của cả cái này 
+
+Dựa trên script cleaning của bạn, bảng được tạo ra là traffic_data_clean.
+Đây là Data Dictionary hoàn chỉnh cho clean dataset (dữ liệu sau khi làm sạch) để bạn có thể đưa vào Report 3.
+
+Data Dictionary – Clean Traffic Dataset
+
+Dataset traffic_data_clean chứa dữ liệu giao thông đã được làm sạch từ raw data trên MinIO.
+Các bản ghi chỉ được giữ lại nếu thỏa mãn các điều kiện:
+
+current_speed_kmh và free_flow_speed_kmh không null
+
+free_flow_speed_kmh > 0
+
+confidence > 0.9
+
+timestamp hợp lệ
+
+Bảng: traffic_data_clean
+Column	Data Type	Description	Example
+id	INTEGER	ID của điểm giao thông. Tham chiếu tới điểm trong bảng locations	3
+timestamp	TEXT (ISO 8601)	Thời điểm dữ liệu được thu thập, đã chuẩn hóa về định dạng ISO	2026-01-12T20:19:56
+location	TEXT	Tên vị trí giao thông (ngã tư, vòng xoay, đường)	NGÃ 5 ĐỐNG ĐA
+current_speed_kmh	REAL	Tốc độ hiện tại của dòng xe tại vị trí đó (km/h)	23.4
+free_flow_speed_kmh	REAL	Tốc độ lưu thông tự do (khi không có tắc đường)	45.0
+speed_ratio	REAL	Tỷ lệ giữa tốc độ hiện tại và tốc độ free-flow	0.52
+traffic_level	TEXT	Mức độ giao thông được phân loại	DONG
+confidence	REAL	Độ tin cậy của dữ liệu do TomTom API cung cấp	0.96
+Ý nghĩa của từng cột trong phân tích
+1️⃣ id
+
+Mã định danh của điểm giao thông.
+
+Cho phép join với bảng locations nếu cần.
+
+2️⃣ timestamp
+
+Thời điểm dữ liệu được thu thập.
+
+Được chuẩn hóa thành định dạng:
+
+YYYY-MM-DDTHH:MM:SS
+
+Ví dụ
+
+2026-01-12T20:19:56
+
+Dùng để:
+
+phân tích theo giờ cao điểm
+
+phân tích theo ngày
+
+dự đoán tắc đường theo thời gian
+
+3️⃣ location
+
+Tên điểm giao thông.
+
+Ví dụ:
+
+NGÃ 5 ĐỐNG ĐA
+
+VÒNG XOAY QUẢNG TRƯỜNG NTT
+
+BỆNH VIỆN ĐA KHOA TỈNH BÌNH ĐỊNH
+
+Dùng để:
+
+phân tích điểm tắc đường thường xuyên
+
+so sánh giao thông giữa các khu vực
+
+4️⃣ current_speed_kmh
+
+Tốc độ trung bình hiện tại của xe tại đoạn đường.
+
+Ví dụ:
+
+18 km/h
+
+Giá trị thấp → giao thông chậm.
+
+5️⃣ free_flow_speed_kmh
+
+Tốc độ lý tưởng khi không có tắc đường.
+
+Ví dụ:
+
+45 km/h
+
+Dùng làm baseline để so sánh với tốc độ hiện tại.
+
+6️⃣ speed_ratio
+
+Công thức:
+
+speed_ratio = current_speed_kmh / free_flow_speed_kmh
+
+Ví dụ:
+
+current_speed = 20
+free_flow_speed = 40
+
+speed_ratio = 0.5
+
+Ý nghĩa:
+
+Ratio	Meaning
+> 0.8	Giao thông thông thoáng
+0.5 – 0.8	Đông xe
+< 0.5	Kẹt xe
+7️⃣ traffic_level
+
+Phân loại mức độ giao thông dựa trên speed_ratio.
+
+Value	Meaning
+THOANG	Giao thông thông thoáng
+DONG	Đông xe
+KET_XE	Tắc đường
+8️⃣ confidence
+
+Độ tin cậy của dữ liệu do TomTom Traffic API cung cấp.
+
+Giá trị:
+
+0 → 1
+
+Ví dụ:
+
+0.97
+
+Trong pipeline của bạn:
+
+confidence > 0.9
+
+→ chỉ giữ dữ liệu đáng tin cậy cao.
+
+Primary Key của bảng
+PRIMARY KEY (id, timestamp)
+
+Ý nghĩa:
+
+Một điểm giao thông không thể có hai record tại cùng thời điểm.
+
+Điều này giúp pipeline:
+
+tránh duplicate data
+
+hỗ trợ incremental processing
+
+Ví dụ một record hoàn chỉnh
+id	timestamp	location	current_speed_kmh	free_flow_speed_kmh	speed_ratio	traffic_level	confidence
+7	2026-01-12T18:20:00	NGÃ 5 ĐỐNG ĐA	19.5	42	0.46	KET_XE	0.95
+
+Ý nghĩa:
+
+tốc độ hiện tại: 19.5 km/h
+
+tốc độ bình thường: 42 km/h
+
+ratio: 0.46
+
+→ tắc đường
+
+Mô tả pipeline liên quan
+
+Data dictionary này thuộc Clean Layer của pipeline:
+
+TomTom API
+     ↓
+Crawler (SQLite Raw)
+     ↓
+Parquet Raw (MinIO)
+     ↓
+Cleaning Script
+     ↓
+traffic_data_clean (SQLite)
+
+Dataset này được sử dụng cho:
+
+EDA
+
+SQL analytics
+
+Machine Learning prediction
+
+✅ Nếu bạn muốn, tôi có thể viết thêm 1 đoạn Data Dictionary chuẩn format report (chuẩn đại học / thesis) để bạn copy thẳng vào Report 3 (1 đoạn văn hoàn chỉnh).
+
+data type của của giá trị vd như current_speed_kmh là float hay là real 
+
+Trong data dictionary bạn cần phân biệt 2 mức kiểu dữ liệu:
+
+1️⃣ Kiểu dữ liệu trong Database (SQLite)
+2️⃣ Kiểu dữ liệu trong Python / Pandas
+
+Hai cái này khác tên nhưng cùng bản chất.
+
+1. Trong Database (SQLite)
+
+Trong bảng của bạn:
+
+current_speed_kmh REAL
+free_flow_speed_kmh REAL
+speed_ratio REAL
+confidence REAL
+
+→ Data type là REAL
+
+REAL trong SQLite = số thực (floating point number).
+
+Ví dụ:
+
+current_speed_kmh
+23.5
+41.2
+17.8
+2. Trong Python / Pandas
+
+Khi đọc dữ liệu bằng pandas:
+
+df = pd.read_parquet(...)
+
+thì các cột này sẽ trở thành:
+
+float64
+
+Ví dụ:
+
+current_speed_kmh    float64
+free_flow_speed_kmh  float64
+speed_ratio          float64
+confidence           float64
+3. Tóm tắt mapping
+Database	Python/Pandas	Ý nghĩa
+REAL	float / float64	số thực
+INTEGER	int	số nguyên
+TEXT	string	chuỗi
+4. Khi viết Data Dictionary trong report
+
+Bạn nên ghi data type của database, tức là:
+
+Column	Data Type
+current_speed_kmh	REAL
+free_flow_speed_kmh	REAL
+speed_ratio	REAL
+confidence	REAL
+
+vì dataset của bạn được lưu trong SQLite.
+
+5. Ví dụ chuẩn trong report
+
+current_speed_kmh
+
+Data type: REAL
+
+Description: Current average speed of vehicles at the location (km/h)
+
+✅ Kết luận
+
+Trong SQLite → REAL
+
+Trong Python/Pandas → float
+
+Nhưng trong data dictionary nên ghi REAL.
+
+Nếu bạn muốn, tôi có thể viết cho bạn Data Dictionary chuẩn academic (bảng đẹp để dán vào report Word / PDF) — thường giảng viên rất thích format đó.
+
+SQLite có float không
+
+Trong SQLite thì không có kiểu dữ liệu FLOAT chính thức như một kiểu riêng biệt. SQLite dùng hệ thống type affinity, nên các số thực được lưu dưới dạng REAL.
+
+1️⃣ Kiểu số thực trong SQLite
+
+Trong SQLite:
+
+Kiểu khai báo	SQLite hiểu là
+REAL	số thực (floating point)
+FLOAT	vẫn được chấp nhận nhưng được map thành REAL
+DOUBLE	cũng map thành REAL
+
+Ví dụ:
+
+CREATE TABLE test (
+    speed REAL
+);
+
+hoặc
+
+CREATE TABLE test (
+    speed FLOAT
+);
+
+👉 Cả hai SQLite đều lưu giống nhau: floating-point number 8 bytes.
+
+2️⃣ 5 kiểu dữ liệu chính của SQLite
+
+SQLite thực chất chỉ có 5 storage classes:
+
+Storage Class	Ý nghĩa
+NULL	giá trị rỗng
+INTEGER	số nguyên
+REAL	số thực
+TEXT	chuỗi
+BLOB	dữ liệu nhị phân
+3️⃣ Ví dụ trong bảng crawler của bạn
+
+Trong bảng:
+
+CREATE TABLE traffic_data (
+    current_speed_kmh REAL,
+    free_flow_speed_kmh REAL,
+    speed_ratio REAL,
+    confidence REAL
+);
+
+Các cột này lưu:
+
+Column	Ví dụ
+current_speed_kmh	23.5
+free_flow_speed_kmh	45.0
+speed_ratio	0.52
+confidence	0.93
+
+→ tất cả đều REAL
+
+4️⃣ Khi đọc bằng Pandas
+df = pd.read_sql(...)
+
+thì pandas sẽ convert:
+
+REAL → float64
+5️⃣ Kết luận cho report
+
+Trong Data Dictionary nên ghi:
+
+Column	Data Type
+current_speed_kmh	REAL
+free_flow_speed_kmh	REAL
+speed_ratio	REAL
+confidence	REAL
+
+✅ Tóm lại
+
+SQLite không có FLOAT riêng
+
+FLOAT nếu khai báo vẫn được coi là REAL
+
+Data dictionary nên ghi REAL
+
+Nếu bạn muốn, tôi có thể chỉ thêm một điểm mà rất nhiều sinh viên làm sai trong data dictionary của SQLite (liên quan đến TEXT timestamp) — cái này giảng viên thường bắt lỗi trong report.
+
+Data Dictionary
+Dự án này thu thập dữ liệu giao thông thời gian thực bằng cách sử dụng API Giao thông của TomTom. Tập dữ liệu bao gồm hai bảng chính: locations và traffic_data. Bảng locations lưu trữ thông tin về các điểm giám sát, trong khi bảng traffic_data ghi lại tình trạng giao thông được thu thập định kỳ từ API.https://www.facebook.com/share/p/1DCgkrVp1q/
+1. Table: locations
+This table stores the geographic coordinates and names of traffic monitoring locations.
+Column Name
+Data Type
+Description
+id
+INTEGER (Primary Key)
+Mã định danh duy nhất cho mỗi địa điểm
+name
+TEXT
+Tên địa điểm giám sát giao thông
+lat
+REAL
+Tọa độ vĩ độ của vị trí
+lon
+REAL
+Tọa độ kinh độ của vị trí
+active
+INTEGER
+Cho biết vị trí đó có đang hoạt động hay không (1 = đang hoạt động, 0 = không hoạt động)
+
+
+
+Example:
+id
+name
+lat
+lon
+active
+1
+BỆNH VIỆN ĐA KHOA TỈNH BÌNH ĐỊNH
+13.7823
+109.2194
+1
+
+
+2. Table: traffic_data
+This table stores traffic information collected from the TomTom API at regular intervals.
+Column Name
+Data Type
+Description
+id
+INTEGER (Primary Key)
+Mã định danh duy nhất của mỗi bản ghi 
+timestamp
+TEXT
+Thời điểm thu thập dữ liệu giao thông
+location
+INTEGER (Foreign Key)
+Mã định danh vị trí tham chiếu đến locations.id
+current_speed_kmh
+REAL
+Tốc độ trung bình hiện tại của phương tiện trên đoạn đường này (km/h)
+free_flow_speed_kmh
+REAL
+Tốc độ dự kiến ​​khi đường không bị tắc nghẽn (km/h)
+speed_ratio
+REAL
+Tốc độ dự kiến ​​khi đường không bị tắc nghẽn (km/h)
+traffic_level
+TEXT
+Loại tình trạng giao thông (THOANG, DONG, KET_XE)
+confidence
+REAL
+Điểm tin cậy do API của TomTom cung cấp (từ 0 đến 1)
+
+Example:
+id
+timestamp
+location
+current_speed_kmh
+free_flow_speed_kmh
+speed_ratio
+traffic_level
+confidence
+1023
+2026-01-12 20:19:56
+3
+28.5
+60
+0.47
+DONG
+0.92
+
+3. Data Relationships
+Mối quan hệ giữa hai bảng được minh họa bên dưới:
+vị trí (1) -------- (N) dữ liệu giao thông
+Một vị trí có thể có nhiều bản ghi giao thông được thu thập theo thời gian.
+4. Data Dictionary – Clean Traffic Dataset
+Column
+Data Type
+Description
+Example
+id
+INTEGER
+ID của điểm giao thông. Tham chiếu tới điểm trong bảng locations
+3
+timestamp
+TEXT (ISO 8601)
+Thời điểm dữ liệu được thu thập, đã chuẩn hóa về định dạng ISO
+2026-01-12T20:19:56
+location
+TEXT
+Tên vị trí giao thông (ngã tư, vòng xoay, đường)
+NGÃ 5 ĐỐNG ĐA
+current_speed_kmh
+REAL
+Tốc độ hiện tại của dòng xe tại vị trí đó (km/h)
+23.4
+free_flow_speed_kmh
+REAL
+Tốc độ lưu thông tự do (khi không có tắc đường)
+45.0
+speed_ratio
+REAL
+Tỷ lệ giữa tốc độ hiện tại và tốc độ free-flow
+0.52
+traffic_level
+TEXT
+Mức độ giao thông được phân loại
+DONG
+confidence
+REAL
+Độ tin cậy của dữ liệu do TomTom API cung cấp
+0.96
+
+
+đổi sang dạng markdown trên md
+
+Dưới đây là phiên bản Markdown (.md) chuẩn để bạn có thể đưa trực tiếp vào README.md hoặc report GitHub.
+
+# Data Dictionary
+
+Dự án này thu thập dữ liệu giao thông thời gian thực bằng cách sử dụng **TomTom Traffic API**.  
+Tập dữ liệu bao gồm hai bảng chính: **locations** và **traffic_data**.
+
+- Bảng **locations** lưu trữ thông tin về các điểm giám sát giao thông.
+- Bảng **traffic_data** ghi lại tình trạng giao thông được thu thập định kỳ từ API.
+
+---
+
+# 1. Table: `locations`
+
+Bảng này lưu trữ thông tin tọa độ địa lý và tên của các điểm giám sát giao thông.
+
+| Column Name | Data Type | Description |
+|---|---|---|
+| id | INTEGER (Primary Key) | Mã định danh duy nhất cho mỗi địa điểm |
+| name | TEXT | Tên địa điểm giám sát giao thông |
+| lat | REAL | Tọa độ vĩ độ của vị trí |
+| lon | REAL | Tọa độ kinh độ của vị trí |
+| active | INTEGER | Cho biết vị trí đó có đang hoạt động hay không (1 = đang hoạt động, 0 = không hoạt động) |
+
+### Example
+
+| id | name | lat | lon | active |
+|---|---|---|---|---|
+| 1 | BỆNH VIỆN ĐA KHOA TỈNH BÌNH ĐỊNH | 13.7823 | 109.2194 | 1 |
+
+---
+
+# 2. Table: `traffic_data`
+
+Bảng này lưu trữ thông tin giao thông được thu thập từ **TomTom API** theo chu kỳ thời gian.
+
+| Column Name | Data Type | Description |
+|---|---|---|
+| id | INTEGER (Primary Key) | Mã định danh duy nhất của mỗi bản ghi |
+| timestamp | TEXT | Thời điểm thu thập dữ liệu giao thông |
+| location | INTEGER (Foreign Key) | Mã định danh vị trí tham chiếu đến `locations.id` |
+| current_speed_kmh | REAL | Tốc độ trung bình hiện tại của phương tiện trên đoạn đường (km/h) |
+| free_flow_speed_kmh | REAL | Tốc độ dự kiến khi đường không bị tắc nghẽn (km/h) |
+| speed_ratio | REAL | Tỷ lệ giữa tốc độ hiện tại và tốc độ lưu thông tự do |
+| traffic_level | TEXT | Loại tình trạng giao thông (THOANG, DONG, KET_XE) |
+| confidence | REAL | Điểm tin cậy do TomTom API cung cấp (0 → 1) |
+
+### Example
+
+| id | timestamp | location | current_speed_kmh | free_flow_speed_kmh | speed_ratio | traffic_level | confidence |
+|---|---|---|---|---|---|---|---|
+| 1023 | 2026-01-12 20:19:56 | 3 | 28.5 | 60 | 0.47 | DONG | 0.92 |
+
+---
+
+# 3. Data Relationships
+
+Mối quan hệ giữa hai bảng:
+
+
+locations (1) -------- (N) traffic_data
+
+
+Một **địa điểm** có thể có **nhiều bản ghi giao thông** được thu thập theo thời gian.
+
+---
+
+# 4. Data Dictionary – Clean Traffic Dataset
+
+Sau khi dữ liệu được xử lý và làm sạch, một tập dữ liệu mới được tạo ra để phục vụ phân tích.
+
+| Column | Data Type | Description | Example |
+|---|---|---|---|
+| id | INTEGER | ID của điểm giao thông, tham chiếu tới bảng `locations` | 3 |
+| timestamp | TEXT (ISO 8601) | Thời điểm dữ liệu được thu thập, đã chuẩn hóa về định dạng ISO | 2026-01-12T20:19:56 |
+| location | TEXT | Tên vị trí giao thông | NGÃ 5 ĐỐNG ĐA |
+| current_speed_kmh | REAL | Tốc độ hiện tại của dòng xe (km/h) | 23.4 |
+| free_flow_speed_kmh | REAL | Tốc độ lưu thông tự do (không tắc đường) | 45.0 |
+| speed_ratio | REAL | Tỷ lệ giữa tốc độ hiện tại và tốc độ free-flow | 0.52 |
+| traffic_level | TEXT | Mức độ giao thông được phân loại | DONG |
+| confidence | REAL | Độ tin cậy của dữ liệu do TomTom API cung cấp | 0.96 |
+
+✅ Markdown này sẽ:
+
+hiển thị table đẹp trên GitHub
+
+đúng format cho report data engineering
+
+dùng được cho README.md hoặc documentation
+
+Nếu bạn muốn, tôi có thể chỉnh lại Data Dictionary này lên level “chuẩn Data Engineering report” (thêm units, constraints, data quality rules) — cái này giảng viên thường đánh giá cao hơn rất nhiều.
