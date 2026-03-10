@@ -121,12 +121,6 @@ for obj_name in parquet_files:
             continue
         if pd.isna(confidence) or confidence <= 0.9:
             continue
-        # ----- NORMALIZE TIMESTAMP -----
-        try:
-            ts = datetime.fromisoformat(str(ts)).isoformat()
-        except Exception:
-            continue
-
         # ----- IDEMPOTENT INSERT -----
         cur.execute("""
             INSERT OR IGNORE INTO traffic_data_clean (
