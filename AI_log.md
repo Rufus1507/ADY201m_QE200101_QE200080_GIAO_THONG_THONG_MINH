@@ -10881,3 +10881,444 @@ hiển thị table đẹp trên GitHub
 dùng được cho README.md hoặc documentation
 
 Nếu bạn muốn, tôi có thể chỉnh lại Data Dictionary này lên level “chuẩn Data Engineering report” (thêm units, constraints, data quality rules) — cái này giảng viên thường đánh giá cao hơn rất nhiều.
+cho tôi lệnh đổi HOÀNG VĂN THỤ - TâY SƠN và NGUYỄN THỊ ĐỊNH -TRẦN VĂN ƠN thành HOÀNG VĂN THỤ - TÂY SƠN và NGUYỄN THỊ ĐỊNH - TRẦN VĂN ƠN trong bảng traffic
+
+Bạn chỉ cần dùng UPDATE + WHERE để sửa lại đúng chuỗi trong bảng traffic_data.
+
+1️⃣ Sửa HOÀNG VĂN THỤ - TâY SƠN → HOÀNG VĂN THỤ - TÂY SƠN
+UPDATE traffic_data
+SET location = 'HOÀNG VĂN THỤ - TÂY SƠN'
+WHERE location = 'HOÀNG VĂN THỤ - TâY SƠN';
+2️⃣ Sửa NGUYỄN THỊ ĐỊNH -TRẦN VĂN ƠN → NGUYỄN THỊ ĐỊNH - TRẦN VĂN ƠN
+UPDATE traffic_data
+SET location = 'NGUYỄN THỊ ĐỊNH - TRẦN VĂN ƠN'
+WHERE location = 'NGUYỄN THỊ ĐỊNH -TRẦN VĂN ƠN';
+3️⃣ Kiểm tra lại sau khi sửa
+SELECT DISTINCT location
+FROM traffic_data
+ORDER BY location;
+
+💡 Mẹo khi clean data trong SQL
+
+Lỗi phổ biến nhất:
+
+thiếu space " -"
+
+sai chữ hoa/thường
+
+sai unicode tiếng Việt
+
+Sau khi sửa 2 dòng này xong thì lệnh convert location → id trước đó sẽ chạy được.
+
+Nếu bạn muốn, tôi có thể cho bạn thêm 1 lệnh SQL để tìm tất cả các location bị sai format trong bảng (rất hữu ích khi clean data).
+
+import sqlite3
+from datetime import datetime
+import os
+import io
+import pandas as pd
+from minio import Minio
+
+# ================= CONFIG =================
+MINIO_ENDPOINT = "localhost:9000"
+MINIO_ACCESS_KEY = "admin"
+MINIO_SECRET_KEY = "admin123"
+BUCKET_NAME = "raw-traffic-data"
+PREFIX = "traffic/incremental"
+
+CLEAN_DIR = "data/clean"
+CLEAN_DB_PATH = os.path.join(CLEAN_DIR, "data_traffic_clean.db")
+
+os.makedirs(CLEAN_DIR, exist_ok=True)
+
+# ================= MINIO CLIENT =================
+client = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=False
+)
+
+# ================= SQLITE CLEAN TARGET =================
+conn = sqlite3.connect(CLEAN_DB_PATH)
+cur = conn.cursor()
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS traffic_data_clean (
+        id INTEGER,
+        timestamp TEXT,
+        location TEXT,
+        current_speed_kmh REAL,
+        free_flow_speed_kmh REAL,
+        speed_ratio REAL,
+        traffic_level TEXT,
+        confidence REAL,
+        PRIMARY KEY (id, timestamp)
+    )
+""")
+
+# ================= FIND ALL PARQUET FILES =================
+print("🔍 Searching for parquet files on MinIO...")
+if client.bucket_exists(BUCKET_NAME):
+    objects = client.list_objects(BUCKET_NAME, prefix=PREFIX, recursive=True)
+    parquet_files = [obj.object_name for obj in objects if obj.object_name.endswith('.parquet')]
+else:
+    print(f"❌ Bucket {BUCKET_NAME} does not exist.")
+    parquet_files = []
+
+print(f"🔍 Found {len(parquet_files)} parquet files")
+
+# ================= CLEAN LOOP =================
+for obj_name in parquet_files:
+    print(f"➡ Processing: {obj_name}")
+    try:
+        response = client.get_object(BUCKET_NAME, obj_name)
+        file_data = response.read()
+        df_raw = pd.read_parquet(io.BytesIO(file_data))
+    except Exception as e:
+        print(f"❌ Lỗi đọc file {obj_name}: {e}")
+        continue
+    finally:
+        if 'response' in locals() and hasattr(response, 'close'):
+            response.close()
+        elif 'response' in locals() and hasattr(response, 'release_conn'):
+            response.release_conn()
+
+    for _, row in df_raw.iterrows():
+        rid = row["id"]
+        ts = row["timestamp"]
+        location = row["location"]
+        current_speed = row["current_speed_kmh"]
+        free_flow_speed = row["free_flow_speed_kmh"]
+        speed_ratio = row["speed_ratio"]
+        traffic_level = row["traffic_level"]
+        confidence = row.get("confidence", None)
+
+        # ----- BASIC VALIDATION -----
+        if pd.isna(current_speed) or pd.isna(free_flow_speed):
+            continue
+        if free_flow_speed <= 0:
+            continue
+        if pd.isna(speed_ratio) or pd.isna(traffic_level):
+            continue
+        if pd.isna(confidence) or confidence <= 0.9:
+            continue
+        # ----- NORMALIZE TIMESTAMP -----
+        try:
+            ts = datetime.fromisoformat(str(ts)).isoformat()
+        except Exception:
+            continue
+
+        # ----- IDEMPOTENT INSERT -----
+        cur.execute("""
+            INSERT OR IGNORE INTO traffic_data_clean (
+                id,
+                timestamp,
+                location,
+                current_speed_kmh,
+                free_flow_speed_kmh,
+                speed_ratio,
+                traffic_level,
+                confidence
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            rid,
+            ts,
+            location,
+            current_speed,
+            free_flow_speed,
+            speed_ratio,
+            traffic_level,
+            confidence
+        ))
+
+conn.commit()
+conn.close()
+
+print("✅ Incremental clean completed successfully")
+print(f"📁 Clean DB: {CLEAN_DB_PATH}")
+khi tôi clean có cần phải chuyển các về locations từ số quay lại thành chữ không
+
+Không cần bắt buộc chuyển từ số → chữ khi clean. Điều này phụ thuộc vào mục đích của dataset clean. Trong pipeline dữ liệu của bạn có 2 cách thiết kế phổ biến:
+
+1️⃣ Cách chuẩn database (khuyên dùng cho hệ thống)
+
+Giữ location là ID (INTEGER).
+
+Lý do
+
+đúng chuẩn relational database
+
+tránh lặp dữ liệu
+
+tiết kiệm storage
+
+join nhanh hơn
+
+Cấu trúc:
+
+locations
+
+id	name
+1	NGÃ 5 ĐỐNG ĐA
+2	HOÀNG VĂN THỤ - TÂY SƠN
+
+traffic_data_clean
+
+id	timestamp	location
+1	2026-01-12T20:19:56	3
+
+Khi cần hiển thị:
+
+SELECT 
+    t.timestamp,
+    l.name,
+    t.current_speed_kmh
+FROM traffic_data_clean t
+JOIN locations l
+ON t.location = l.id;
+2️⃣ Cách dùng cho phân tích / visualization
+
+Chuyển ID → tên location.
+
+Lý do:
+
+dễ đọc
+
+dễ dùng cho RStudio / PowerBI / Tableau
+
+không cần join thêm bảng
+
+Ví dụ:
+
+timestamp	location
+2026-01-12T20:19:56	NGÃ 5 ĐỐNG ĐA
+3️⃣ Với pipeline của bạn (MinIO → Parquet → Clean DB)
+
+Bạn đang làm data engineering pipeline, nên khuyến nghị:
+
+RAW / CLEAN layer
+
+location = INTEGER (id)
+
+ANALYTICS / VISUALIZATION layer
+
+location = TEXT (name)
+4️⃣ Nếu muốn convert ID → name trong clean script
+
+Bạn chỉ cần thêm mapping:
+
+location_map = {
+    1: "NGÃ 5 ĐỐNG ĐA",
+    2: "HOÀNG VĂN THỤ - TÂY SƠN",
+    3: "VÒNG XOAY QUẢNG TRƯỜNG NTT",
+}
+
+rồi:
+
+location = location_map.get(row["location"])
+5️⃣ Kết luận cho project của bạn
+
+Với SQLite clean dataset tôi khuyên:
+
+location = INTEGER
+
+và join với bảng locations khi phân tích.
+
+✅ Tóm lại
+
+Layer	location
+raw data	TEXT
+clean data	INTEGER (id)
+analysis	TEXT (name)
+
+💡 Nếu bạn muốn, tôi có thể chỉ bạn 1 cải tiến cực quan trọng cho script clean này (giúp chạy nhanh hơn ~30–50 lần) vì hiện tại bạn đang dùng iterrows() — đây là lỗi phổ biến trong pipeline Pandas.
+
+vấn đề là bảng locations bị mất khi clean
+
+Vấn đề xảy ra vì script clean của bạn chỉ tạo bảng traffic_data_clean, còn bảng locations không được tạo hoặc copy sang database clean.
+
+Nên khi bạn mở data_traffic_clean.db thì chỉ thấy 1 bảng.
+
+🔎 Vì sao bị mất bảng locations
+
+Trong code bạn chỉ có:
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS traffic_data_clean (
+    id INTEGER,
+    timestamp TEXT,
+    location TEXT,
+    current_speed_kmh REAL,
+    free_flow_speed_kmh REAL,
+    speed_ratio REAL,
+    traffic_level TEXT,
+    confidence REAL,
+    PRIMARY KEY (id, timestamp)
+)
+""")
+
+Script không hề tạo bảng locations.
+
+Do đó database clean không có bảng này.
+
+✅ Cách sửa đúng
+
+Bạn cần tạo lại bảng locations trong clean DB.
+
+Thêm đoạn này trước khi clean loop chạy:
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    lat REAL,
+    lon REAL,
+    active INTEGER
+)
+""")
+🚀 Cách tốt hơn (copy từ raw DB sang clean DB)
+
+Nếu bạn có database raw chứa bảng locations, bạn nên copy sang:
+
+raw_conn = sqlite3.connect("data/raw/data_traffic.db")
+raw_cur = raw_conn.cursor()
+
+rows = raw_cur.execute("SELECT * FROM locations").fetchall()
+
+for r in rows:
+    cur.execute("""
+        INSERT OR IGNORE INTO locations
+        VALUES (?, ?, ?, ?, ?)
+    """, r)
+
+raw_conn.close()
+📊 Kiến trúc pipeline chuẩn
+RAW DB
+│
+├── locations
+└── traffic_data
+      │
+      ▼
+CLEAN SCRIPT
+      │
+      ▼
+CLEAN DB
+│
+├── locations
+└── traffic_data_clean
+💡 Khuyến nghị cho project của bạn
+
+Trong clean DB nên có 2 bảng:
+
+locations
+
+| id | name | lat | lon | active |
+
+traffic_data_clean
+
+| id | timestamp | location | speed |
+
+location sẽ là foreign key → locations.id
+
+✅ Nếu bạn muốn, tôi có thể viết cho bạn phiên bản clean script chuẩn hơn (ngắn hơn ~40 dòng và chạy nhanh hơn nhiều) cho pipeline:
+
+TomTom API → SQLite → MinIO → Parquet → Clean DB
+
+script hiện tại của bạn có 3 chỗ chưa tối ưu mà Data Engineer thường sửa ngay.
+
+tôi muốn đọc từ minIO chứ không phải trong thư mục
+
+Hiện tại script của bạn đã đọc dữ liệu từ MinIO rồi, nhưng bảng locations không nằm trong MinIO, nên khi clean xong database mới không có bảng này.
+
+Bạn cần đưa bảng locations lên MinIO giống như các file parquet, rồi đọc nó từ MinIO.
+
+1️⃣ Upload bảng locations lên MinIO
+
+Ví dụ lưu thành locations.parquet trong bucket.
+
+import pandas as pd
+from minio import Minio
+import io
+
+locations = [
+    (1,"NGÃ 5 ĐỐNG ĐA",13.7832553,109.2196898,1),
+    (2,"HOÀNG VĂN THỤ - TÂY SƠN",13.7594293,109.2057978,1),
+]
+
+df = pd.DataFrame(locations, columns=["id","name","lat","lon","active"])
+
+buffer = io.BytesIO()
+df.to_parquet(buffer, index=False)
+buffer.seek(0)
+
+client.put_object(
+    "raw-traffic-data",
+    "locations/locations.parquet",
+    buffer,
+    length=len(buffer.getvalue())
+)
+2️⃣ Đọc bảng locations từ MinIO trong clean script
+
+Thêm đoạn này trước CLEAN LOOP:
+
+# ================= LOAD LOCATIONS FROM MINIO =================
+print("📍 Loading locations table from MinIO")
+
+response = client.get_object(BUCKET_NAME, "locations/locations.parquet")
+locations_df = pd.read_parquet(io.BytesIO(response.read()))
+response.close()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    lat REAL,
+    lon REAL,
+    active INTEGER
+)
+""")
+
+for _, row in locations_df.iterrows():
+    cur.execute("""
+        INSERT OR IGNORE INTO locations
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        row["id"],
+        row["name"],
+        row["lat"],
+        row["lon"],
+        row["active"]
+    ))
+3️⃣ Pipeline lúc này sẽ đúng kiến trúc Data Engineering
+TomTom API
+     │
+     ▼
+RAW SQLite
+     │
+     ▼
+Upload → MinIO
+     │
+     ├── traffic/incremental/*.parquet
+     └── locations/locations.parquet
+     │
+     ▼
+Clean Script
+     │
+     ▼
+Clean SQLite
+     ├── locations
+     └── traffic_data_clean
+4️⃣ Ưu điểm
+
+pipeline hoàn toàn đọc từ MinIO
+
+không phụ thuộc file local
+
+đúng kiểu Data Lake architecture
+
+💡 Quan trọng:
+Script của bạn hiện đang dùng iterrows() để insert từng dòng → với data lớn sẽ rất chậm.
+
+Nếu muốn, tôi có thể viết cho bạn phiên bản clean script chuẩn hơn (vectorized Pandas + batch insert) giúp pipeline chạy nhanh hơn ~20–50 lần.

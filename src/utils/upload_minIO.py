@@ -15,6 +15,7 @@ CLEANUP_AFTER_UPLOAD = True  # Xóa file tạm sau khi upload thành công
 
 BUCKET_NAME = "raw-traffic-data"
 OBJECT_PREFIX = "traffic/incremental"
+LOCATIONS_PREFIX = "traffic/locations"
 
 MINIO_ENDPOINT = "localhost:9000"
 MINIO_ACCESS_KEY = "admin"
@@ -63,15 +64,78 @@ def read_new_data(last_ts):
         return None
 
 
-def export_to_parquet(df):
+def read_locations():
+    """Đọc toàn bộ dữ liệu bảng locations từ SQLite"""
+    if not os.path.exists(SQLITE_DB):
+        print(f"❌ Không tìm thấy database: {SQLITE_DB}")
+        return None
+
+    try:
+        conn = sqlite3.connect(SQLITE_DB)
+        df = pd.read_sql_query("SELECT * FROM locations", conn)
+        conn.close()
+        return df
+    except sqlite3.Error as e:
+        print(f"❌ Lỗi đọc bảng locations: {e}")
+        return None
+
+
+def export_to_parquet(df, prefix="traffic"):
     """Xuất DataFrame ra file Parquet"""
     os.makedirs(EXPORT_DIR, exist_ok=True)
     now = datetime.now(timezone.utc)
-    file_name = f"traffic_{now.strftime('%Y%m%d_%H%M%S')}.parquet"
+    file_name = f"{prefix}_{now.strftime('%Y%m%d_%H%M%S')}.parquet"
     file_path = os.path.join(EXPORT_DIR, file_name)
-    
+
     df.to_parquet(file_path, index=False)
     return file_path, file_name, now
+
+
+def upload_locations_to_minio():
+    """Đọc bảng locations và upload lên MinIO"""
+    print("\n📍 Bắt đầu upload bảng locations...")
+
+    df_loc = read_locations()
+    if df_loc is None:
+        print("⚠️ Bỏ qua upload locations do lỗi đọc dữ liệu.")
+        return
+
+    if df_loc.empty:
+        print("⚠️ Bảng locations rỗng, bỏ qua.")
+        return
+
+    print(f"📊 Tìm thấy {len(df_loc)} bản ghi trong bảng locations")
+
+    file_path, file_name, now = export_to_parquet(df_loc, prefix="locations")
+    print(f"📄 Đã xuất file locations: {file_path}")
+
+    try:
+        client = Minio(
+            MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=False
+        )
+
+        if not client.bucket_exists(BUCKET_NAME):
+            client.make_bucket(BUCKET_NAME)
+            print(f"📁 Đã tạo bucket: {BUCKET_NAME}")
+
+        object_name = f"{LOCATIONS_PREFIX}/{file_name}"
+        client.fput_object(
+            bucket_name=BUCKET_NAME,
+            object_name=object_name,
+            file_path=file_path,
+            content_type="application/octet-stream"
+        )
+        print(f"✅ Đã upload locations: {object_name}")
+    except S3Error as e:
+        print(f"❌ Lỗi MinIO khi upload locations: {e}")
+    except Exception as e:
+        print(f"❌ Lỗi kết nối MinIO khi upload locations: {e}")
+    finally:
+        if CLEANUP_AFTER_UPLOAD:
+            cleanup_file(file_path)
 
 
 def upload_to_minio(file_path, file_name, timestamp):
@@ -126,43 +190,49 @@ def main():
     print("=" * 50)
     print("🚀 Bắt đầu upload dữ liệu lên MinIO")
     print("=" * 50)
-    
+
+    # ── 1. Upload bảng locations ──────────────────────────
+    upload_locations_to_minio()
+
+    # ── 2. Upload traffic_data tăng dần ──────────────────
+    print("\n📡 Bắt đầu upload bảng traffic_data...")
+
     # Load checkpoint
     last_uploaded_ts = load_checkpoint()
     print(f"📌 Timestamp cuối cùng đã upload: {last_uploaded_ts}")
-    
+
     # Đọc dữ liệu mới
     df = read_new_data(last_uploaded_ts)
     if df is None:
         sys.exit(1)
-    
+
     if df.empty:
-        print("✅ Không có dữ liệu mới để upload")
+        print("✅ Không có dữ liệu traffic mới để upload")
         sys.exit(0)
-    
+
     print(f"📊 Tìm thấy {len(df)} bản ghi mới")
-    
+
     # Export ra file parquet
-    file_path, file_name, now = export_to_parquet(df)
+    file_path, file_name, now = export_to_parquet(df, prefix="traffic")
     print(f"📄 Đã xuất file: {file_path}")
-    
+
     # Upload lên MinIO
     object_name = upload_to_minio(file_path, file_name, now)
     if object_name is None:
         print("❌ Upload thất bại!")
         sys.exit(1)
-    
+
     # Cập nhật checkpoint
     new_last_ts = df["timestamp"].max()
     save_checkpoint(new_last_ts)
-    
+
     # Dọn dẹp file tạm
     if CLEANUP_AFTER_UPLOAD:
         cleanup_file(file_path)
-    
+
     print("=" * 50)
-    print("✅ Upload thành công!")
-    print(f"📦 Object: {object_name}")
+    print("✅ Upload hoàn tất!")
+    print(f"📦 Traffic object: {object_name}")
     print(f"🕒 Checkpoint mới: {new_last_ts}")
     print("=" * 50)
 

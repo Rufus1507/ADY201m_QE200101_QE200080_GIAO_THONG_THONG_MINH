@@ -11,6 +11,7 @@ MINIO_ACCESS_KEY = "admin"
 MINIO_SECRET_KEY = "admin123"
 BUCKET_NAME = "raw-traffic-data"
 PREFIX = "traffic/incremental"
+LOCATIONS_PREFIX = "traffic/locations"
 
 CLEAN_DIR = "data/clean"
 CLEAN_DB_PATH = os.path.join(CLEAN_DIR, "data_traffic_clean.db")
@@ -42,6 +43,37 @@ cur.execute("""
         PRIMARY KEY (id, timestamp)
     )
 """)
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS locations (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        latitude REAL,
+        longitude REAL
+    )
+""")
+
+# ================= LOAD LOCATIONS FROM MINIO =================
+print("📍 Loading locations table from MinIO...")
+try:
+    if client.bucket_exists(BUCKET_NAME):
+        loc_objects = list(client.list_objects(BUCKET_NAME, prefix=LOCATIONS_PREFIX, recursive=True))
+        loc_files = sorted(
+            [obj.object_name for obj in loc_objects if obj.object_name.endswith('.parquet')]
+        )
+        if loc_files:
+            latest_loc = loc_files[-1]  # lấy file mới nhất
+            response = client.get_object(BUCKET_NAME, latest_loc)
+            df_loc = pd.read_parquet(io.BytesIO(response.read()))
+            response.close()
+            df_loc.to_sql("locations", conn, if_exists="replace", index=False)
+            print(f"✅ Đã load {len(df_loc)} bản ghi locations từ {latest_loc}")
+        else:
+            print("⚠️ Không tìm thấy file locations trên MinIO.")
+    else:
+        print(f"❌ Bucket {BUCKET_NAME} không tồn tại.")
+except Exception as e:
+    print(f"❌ Lỗi load locations: {e}")
 
 # ================= FIND ALL PARQUET FILES =================
 print("🔍 Searching for parquet files on MinIO...")
