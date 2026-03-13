@@ -115,7 +115,7 @@ for obj_name in parquet_files:
         # ----- BASIC VALIDATION -----
         if pd.isna(current_speed) or pd.isna(free_flow_speed):
             continue
-        if free_flow_speed <= 0:
+        if free_flow_speed <= 0 or current_speed < 0:
             continue
         if pd.isna(speed_ratio) or pd.isna(traffic_level):
             continue
