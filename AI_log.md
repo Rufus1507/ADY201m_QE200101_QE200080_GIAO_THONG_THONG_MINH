@@ -12536,3 +12536,188 @@ logs/cleaning.log
 2026-03-20 09:59:00 | traffic/incremental/2026-03-20/traffic_20260320_071752.parquet
 2026-03-20 09:59:01 | traffic/incremental/2026-03-20/traffic_20260320_081752.parquet
 Lần chạy sau, nếu các file đó đã có trong DB rồi thì sẽ không xuất hiện trong log nữa
+Câu này rất quan trọng khi thuyết trình 👍 — mình giải thích cho bạn **chuẩn + dễ nói trước lớp** luôn:
+
+---
+
+# 🚗 “Tốc độ thông thoáng” là gì?
+
+👉 **Tốc độ thông thoáng (free-flow speed)** là:
+
+➡️ **tốc độ xe có thể chạy khi đường không bị cản trở**
+
+---
+
+# 🎯 Hiểu đơn giản
+
+* Không kẹt xe
+* Không đông
+* Không bị dừng đèn nhiều
+
+👉 Xe chạy gần như “tự do”
+
+---
+
+# 📊 Trong dữ liệu của bạn
+
+Cột:
+
+```
+free_flow_speed_kmh
+```
+
+👉 chính là **tốc độ lý tưởng** của đoạn đường đó
+
+---
+
+# 🔥 So sánh dễ hiểu
+
+| Tình trạng | Tốc độ     |
+| ---------- | ---------- |
+| 🚗 Kẹt xe  | 10–20 km/h |
+| 🚗 Đông    | 20–35 km/h |
+| 🚗 Thoáng  | 35–50 km/h |
+
+👉 **Thoáng = gần với tốc độ tối đa có thể chạy**
+
+---
+
+# 📌 Liên hệ với speed ratio
+
+[
+\text{speed ratio} = \frac{\text{current speed}}{\text{free-flow speed}}
+]
+
+---
+
+## 👉 Khi “thoáng”
+
+* current speed ≈ free-flow speed
+  → speed ratio ≈ **1**
+
+---
+
+## 👉 Khi “kẹt”
+
+* current speed << free-flow speed
+  → speed ratio ≈ **0.1 – 0.3**
+
+---
+
+# 🎤 Câu nói “ăn điểm”
+
+Bạn có thể nói:
+
+“Tốc độ thông thoáng là tốc độ mà phương tiện có thể đạt được khi điều kiện giao thông lý tưởng, không bị cản trở. Đây là mốc chuẩn để so sánh với tốc độ thực tế nhằm đánh giá mức độ ùn tắc.”
+
+---
+
+# ⭐ Ví dụ thực tế
+
+* Đường vắng: chạy 50 km/h → **thoáng**
+* Giờ cao điểm: chỉ chạy 15 km/h → **kẹt**
+
+---
+
+# ✅ Tóm lại
+
+👉 “Thoáng” = xe chạy gần tốc độ tối đa
+👉 “Kẹt” = xe chạy chậm hơn rất nhiều
+
+---
+
+Nếu bạn muốn, mình có thể:
+
+👉 giúp bạn **liên kết khái niệm này vào từng biểu đồ để trả lời câu hỏi của thầy cực mượt** 🚀
+Trong **boxplot (biểu đồ hộp)**, **“cạnh hộp” (hai mép trên và dưới của hình chữ nhật)** có ý nghĩa rất quan trọng 👇
+
+---
+
+# 📦 Cạnh hộp thể hiện gì?
+
+## 🔹 Cạnh dưới của hộp (bottom edge)
+
+👉 Là **Q1 (First Quartile – tứ phân vị 25%)**
+
+→ 25% dữ liệu **nhỏ hơn giá trị này**
+
+---
+
+## 🔹 Cạnh trên của hộp (top edge)
+
+👉 Là **Q3 (Third Quartile – tứ phân vị 75%)**
+
+→ 75% dữ liệu **nhỏ hơn giá trị này**
+
+---
+
+# 📊 Ý nghĩa tổng thể của “hộp”
+
+Khoảng từ Q1 đến Q3 gọi là:
+
+👉 **IQR (Interquartile Range)**
+
+[
+IQR = Q3 - Q1
+]
+
+---
+
+# 🎯 Hiểu đơn giản
+
+👉 “Cái hộp” chứa:
+
+➡️ **50% dữ liệu trung tâm (quan trọng nhất)**
+
+---
+
+# 📌 Trong bài giao thông của bạn
+
+Ví dụ với **speed ratio**:
+
+* Cạnh dưới (Q1) ~ 0.5
+* Cạnh trên (Q3) ~ 0.75
+
+👉 Nghĩa là:
+
+➡️ 50% dữ liệu nằm trong khoảng **0.5 → 0.75**
+
+→ giao thông chủ yếu ở mức **trung bình → hơi thoáng**
+
+---
+
+# 🔥 Ý nghĩa khi phân tích
+
+## 1️⃣ Hộp càng cao (IQR lớn)
+
+→ dữ liệu **biến động mạnh**
+
+→ giao thông không ổn định
+
+---
+
+## 2️⃣ Hộp thấp (IQR nhỏ)
+
+→ dữ liệu **ổn định**
+
+→ giao thông ít thay đổi
+
+---
+
+## 3️⃣ Vị trí hộp
+
+* Hộp nằm thấp → hay kẹt xe
+* Hộp nằm cao → thường thông thoáng
+
+---
+
+# ⭐ Câu nói “ăn điểm” khi thuyết trình
+
+Bạn có thể nói:
+
+“Phần hộp trong boxplot thể hiện 50% dữ liệu trung tâm, được giới hạn bởi Q1 và Q3. Khoảng này giúp chúng ta hiểu mức độ phân tán và trạng thái điển hình của giao thông.”
+
+---
+
+Nếu bạn muốn, mình có thể **viết luôn phần thuyết trình biểu đồ 3 (boxplot) cực chi tiết để bạn nói như pro** 🚀
+****
