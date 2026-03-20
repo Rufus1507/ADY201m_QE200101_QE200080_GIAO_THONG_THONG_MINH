@@ -2,6 +2,7 @@ import sqlite3
 from datetime import datetime
 import os
 import io
+import logging
 import pandas as pd
 from minio import Minio
 
@@ -17,6 +18,21 @@ CLEAN_DIR = "data/clean"
 CLEAN_DB_PATH = os.path.join(CLEAN_DIR, "data_traffic_clean.db")
 
 os.makedirs(CLEAN_DIR, exist_ok=True)
+
+# ================= LOGGING =================
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "cleaning.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8")
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # ================= MINIO CLIENT =================
 client = Minio(
@@ -50,6 +66,13 @@ cur.execute("""
         name TEXT,
         latitude REAL,
         longitude REAL
+    )
+""")
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS cleaned_files (
+        file_name TEXT PRIMARY KEY,
+        cleaned_at TEXT
     )
 """)
 
@@ -88,6 +111,16 @@ print(f"🔍 Found {len(parquet_files)} parquet files")
 
 # ================= CLEAN LOOP =================
 for obj_name in parquet_files:
+    # Kiểm tra file đã được clean chưa
+    already_cleaned = cur.execute(
+        "SELECT 1 FROM cleaned_files WHERE file_name = ?", (obj_name,)
+    ).fetchone()
+    if already_cleaned:
+        print(f"⏭ Skipping (đã clean): {obj_name}")
+        continue
+
+    # Ghi log file chưa được clean
+    logger.info(f"{obj_name}")
     print(f"➡ Processing: {obj_name}")
     try:
         response = client.get_object(BUCKET_NAME, obj_name)
@@ -144,6 +177,12 @@ for obj_name in parquet_files:
             traffic_level,
             confidence
         ))
+
+    # Đánh dấu file đã clean
+    cur.execute(
+        "INSERT OR IGNORE INTO cleaned_files (file_name, cleaned_at) VALUES (?, ?)",
+        (obj_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    )
 
 conn.commit()
 conn.close()

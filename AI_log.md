@@ -12482,3 +12482,57 @@ kết thúc bằng:
 Thank you for listening.
 
 ✅ Nếu bạn muốn, mình có thể viết luôn bản script thuyết trình hoàn chỉnh 5 phút (từ mở bài → từng biểu đồ → kết luận) để bạn chỉ cần đọc là thuyết trình trơn tru, không bị vấp.
+
+Đơn giản hoá lại, chỉ log tên file và thời điểm clean.
+
+Analyzed
+Edited
++4
+-13
+Xong rồi. Log giờ chỉ ghi đúng 2 thứ: tên file và ngày giờ.
+
+Ví dụ nội dung 
+
+logs/cleaning.log
+ sau khi chạy:
+
+2026-03-20 09:56:00 | [locations] traffic/locations/locations_20260310.parquet
+2026-03-20 09:56:01 | [incremental] traffic/incremental/2026-03-20/traffic_20260320_071752.parquet
+2026-03-20 09:56:02 | [incremental] traffic/incremental/2026-03-20/traffic_20260320_081752.parquet
+Không còn log ra console, không có thông tin thừa — chỉ ghi vào file log.
+
+chỉ ghi vào log nhưng file trên minIO mà chưa được clean chứ không phải là ghi hết vào log data trên minIO
+
+
+
+
+
+
+
+
+Để biết file nào "chưa được clean", tôi cần xem checkpoint hiện tại đang dùng ra sao.
+
+Analyzed
+Analyzed
+Hiểu rồi. Hiện tại code không có cơ chế theo dõi file đã clean. Cần thêm một bảng cleaned_files trong DB để lưu tên file đã xử lý — chỉ log những file chưa có trong bảng đó (tức là file mới chưa được clean).
+
+Edited
++23
+-2
+Xong. Đây là cách hoạt động sau khi thay đổi:
+
+Logic mới:
+
+Tạo bảng cleaned_files trong SQLite DB — lưu tên file và thời điểm đã clean.
+Trước khi xử lý mỗi file, kiểm tra xem file đó đã có trong cleaned_files chưa:
+✅ Chưa có → ghi log + tiến hành clean
+⏭ Đã có → bỏ qua, không log
+Sau khi clean xong, insert tên file vào cleaned_files để đánh dấu.
+Ví dụ 
+
+logs/cleaning.log
+ — chỉ thấy file mới lần đầu được clean:
+
+2026-03-20 09:59:00 | traffic/incremental/2026-03-20/traffic_20260320_071752.parquet
+2026-03-20 09:59:01 | traffic/incremental/2026-03-20/traffic_20260320_081752.parquet
+Lần chạy sau, nếu các file đó đã có trong DB rồi thì sẽ không xuất hiện trong log nữa
