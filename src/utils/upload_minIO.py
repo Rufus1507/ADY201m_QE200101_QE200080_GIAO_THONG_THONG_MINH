@@ -17,9 +17,9 @@ BUCKET_NAME = "raw-traffic-data"
 OBJECT_PREFIX = "traffic/incremental"
 LOCATIONS_PREFIX = "traffic/locations"
 
-MINIO_ENDPOINT = "localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "admin123"
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "admin")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "admin123")
 
 
 def load_checkpoint():

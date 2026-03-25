@@ -1,0 +1,57 @@
+services:
+  # --- DỊCH VỤ 1: Kho chứa MinIO (Thay thế container 'app' cũ) ---
+  minio:
+    image: minio/minio
+    container_name: app
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin123
+    command: server /data --console-address ":9001"
+    volumes:
+      # Để KHÔNG mất dữ liệu, hãy thay './minio_data' bằng đường dẫn 
+      # thư mục chứa dữ liệu MinIO hiện tại trên máy bạn (ví dụ: C:/data/minio)
+      - ./minio_data:/data 
+    restart: always
+
+  # --- DỊCH VỤ 2: Crawler chạy liên tục ---
+  traffic-crawler:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: quy_nhon_crawler
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python src/ingestion/crawler.py
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: always
+
+  # --- DỊCH VỤ 3: Xử lý & Upload hằng ngày ---
+  daily-processor:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: quy_nhon_processor
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=admin123
+    command: >
+      sh -c "while true; do 
+        echo '[INFO] Bat dau luong xu ly hang ngay...' &&
+        python src/utils/upload_minIO.py &&
+        python src/processing/cleaning_and_storing.py &&
+        echo '[INFO] Hoan tat! He thong se ngu 24 gio.' &&
+        sleep 86400; 
+      done"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./checkpoint:/app/checkpoint
+    depends_on:
+      - minio
+    restart: always

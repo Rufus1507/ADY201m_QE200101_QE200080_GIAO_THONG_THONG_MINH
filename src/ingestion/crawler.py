@@ -24,7 +24,10 @@ def find_project_root(marker="ADY201m"):
         path = parent
 
 
-PROJECT_ROOT = find_project_root("ADY201m")
+if os.path.exists("/app"):
+    PROJECT_ROOT = "/app"
+else:
+    PROJECT_ROOT = find_project_root("ADY201m")
 DATA_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
 os.makedirs(DATA_DIR, exist_ok=True)
 

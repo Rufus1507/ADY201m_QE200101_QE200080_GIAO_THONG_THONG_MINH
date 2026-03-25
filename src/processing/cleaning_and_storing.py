@@ -7,9 +7,9 @@ import pandas as pd
 from minio import Minio
 
 # ================= CONFIG =================
-MINIO_ENDPOINT = "localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "admin123"
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "admin")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "admin123")
 BUCKET_NAME = "raw-traffic-data"
 PREFIX = "traffic/incremental"
 LOCATIONS_PREFIX = "traffic/locations"

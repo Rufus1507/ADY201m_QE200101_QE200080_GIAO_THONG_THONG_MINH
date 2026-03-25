@@ -26,14 +26,14 @@ df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
 df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
 # THOANG = 0, DONG = 1 (thường là vậy)
 X = df[[
-    # 'location',
+    'location',
     'hour_sin',
     'hour_cos',
     'is_peak_hour', 
     'day_of_week'
     # 'is_weekend',
     # 'current_speed_kmh',
-    # 'free_flow_speed_kmh',
+    # 'free_flow_speed_kmh',r
     # 'speed_ratio',
     # 'confidence'
 ]]

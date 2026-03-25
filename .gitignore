@@ -25,3 +25,4 @@ checkpoint/
 # Hệ thống
 .DS_Store
 node_modules/
+minio_data/
