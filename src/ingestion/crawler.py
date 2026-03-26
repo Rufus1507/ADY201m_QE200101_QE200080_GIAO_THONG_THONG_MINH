@@ -186,7 +186,7 @@ if __name__ == "__main__":
             data = collect()
             save(data)
 
-            time.sleep(20 * 60)
+            time.sleep(60)
 
         except KeyboardInterrupt:
             print("🛑 Stopped by user")
